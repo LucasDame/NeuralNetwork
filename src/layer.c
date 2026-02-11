@@ -35,6 +35,13 @@ typedef struct {
     Matrix delta;
     Matrix weight_gradients;
     Matrix bias_gradients;
+    
+    Matrix t_weights;
+    Matrix t_biases;
+    Matrix error_temp;
+    Matrix z_prime;
+    Matrix t_input;
+    Matrix buffer;
 } Layer;
 
 Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
@@ -72,6 +79,14 @@ Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
     layer.weight_gradients = create_matrix(input_size, output_size, 0); 
     layer.bias_gradients = create_matrix(1, output_size, 0); 
 
+    layer.t_weights = create_matrix(output_size, input_size, 0);
+    transpose_matrix(layer.weights, layer.t_weights); // Stocker la transposée des poids pour la backpropagation
+    layer.t_biases = create_matrix(output_size, 1, 0);
+    layer.error_temp = create_matrix(1, output_size, 0);
+    layer.z_prime = create_matrix(1, output_size, 0);
+    layer.t_input = create_matrix(input_size, 1, 0);
+    layer.buffer = create_matrix(input_size, output_size, 0);
+
     return layer;
 }
 
@@ -83,6 +98,12 @@ void free_layer(Layer *layer) {
     free_matrix(&layer->weight_gradients);
     free_matrix(&layer->bias_gradients);
     free_matrix(&layer->delta);
+    free_matrix(&layer->t_weights);
+    free_matrix(&layer->t_biases);
+    free_matrix(&layer->error_temp);
+    free_matrix(&layer->z_prime);
+    free_matrix(&layer->t_input);
+    free_matrix(&layer->buffer);
 }
 
 void apply_activation(Layer *layer) {
@@ -106,4 +127,13 @@ void forward_layer(Layer *layer, Matrix input) {
     
     // 3. A = f(Z)
     apply_activation(layer);
+}
+
+void compute_z_prime(Layer *layer) {
+    for (int i = 0; i < layer->z.rows; i++) {
+        for (int j = 0; j < layer->z.cols; j++) {
+            double z_val = get_element(layer->z, i, j);
+            set_element(layer->z_prime, i, j, layer->deriv(z_val));
+        }
+    }
 }

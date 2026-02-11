@@ -7,7 +7,7 @@ typedef struct {
 
 Network create_network(int* layer_sizes, int num_layers) {
     Network net;
-    net.num_layers = num_layers - 1; // Le nombre de couches est le nombre de tailles - 1
+    net.num_layers = num_layers - 1;
     net.layers = malloc(net.num_layers * sizeof(Layer));
     if (net.layers == NULL) {
         fprintf(stderr, "Erreur d'allocation mémoire pour les couches !\n");
@@ -24,7 +24,7 @@ void free_network(Network *net) {
         free_layer(&net->layers[i]);
     }
     free(net->layers);
-    net->layers = NULL; // Bonne pratique pour éviter les "double free"
+    net->layers = NULL; 
 }
 
 void forward_network(Network net, Matrix input, Matrix output) {
@@ -41,84 +41,77 @@ void forward_network(Network net, Matrix input, Matrix output) {
     copy_matrix(net.layers[net.num_layers - 1].activation, output);
 }
 
-void train_network(Network *net, Matrix input, Matrix target, double learning_rate) {
-    // 1. Forward pass
-    forward_network(*net, input, target); // On peut réutiliser target comme "output" temporaire
+int train_network(Network *net, Matrix input, Matrix target, double learning_rate, int batch_size, int current_batch) {
+    // 1. FORWARD PASS
+    forward_network(*net, input, net->layers[net->num_layers - 1].activation);
 
     // 2. BACKWARD PASS
-    // On parcourt les couches de la fin (output) vers le début (input)
-    for (int i = net.num_layers - 1; i >= 0; i--) {
-        Layer *layer = &net.layers[i];
-        Layer *next_layer = (i < net.num_layers - 1) ? &net.layers[i + 1] : NULL;
-        Layer *prev_layer = (i > 0) ? &net.layers[i - 1] : NULL;
-        
-        // --- A. Calcul du Delta (l'erreur du neurone) ---
-        if (next_layer == NULL) {
-            // CAS 1 : Couche de Sortie
-            // Erreur = (Sortie - Cible) * f'(Z)
-            // Note : Pour MSE, la dérivée de l'erreur est (A - Y)
-            for (int r = 0; r < layer->delta.rows; r++) {
-                for (int c = 0; c < layer->delta.cols; c++) {
-                    double a = get_element(layer->activation, r, c);
-                    double y = get_element(target, r, c);
-                    double z = get_element(layer->z, r, c);
-                    
-                    // Calcul du delta : (A - Y) * f'(Z)
-                    double delta_val = (a - y) * layer->deriv(z);
-                    set_element(layer->delta, r, c, delta_val);
-                }
-            }
+    for (int i = net->num_layers - 1; i >= 0; i--) {
+        Layer *layer = &net->layers[i];
+
+        // A. Calcul de f'(Z) -> Stocké dans layer->z_prime
+        compute_z_prime(layer);
+
+        // B. Calcul du Delta (Erreur locale)
+        if (i == net->num_layers - 1) {
+            // --- DERNIÈRE COUCHE ---
+            // Delta = (Activation - Target) * f'(Z)
+            // 1. Calcul (Activation - Target) -> stocké dans error_temp
+            substract_matrices(layer->activation, target, layer->error_temp);
+            
+            // 2. Delta = error_temp * f'(Z) (Produit Hadamard)
+            elementwise_multiply_matrix(layer->error_temp, layer->z_prime, layer->delta);
         } else {
-            // CAS 2 : Couche Cachée
-            // Erreur = (Poids_Next_Transposés * Delta_Next) * f'(Z)
-            
-            // Étape critique : On transpose les poids de la couche suivante
-            // (Supposons que tu aies ajouté ce buffer dans la struct Layer)
-            transpose_matrix(next_layer->weights, layer->weights_transposed_cache);
-            
-            // On propage l'erreur en arrière
-            multiply_matrices(next_layer->delta, layer->weights_transposed_cache, layer->delta); // Erreur brute
-            
-            // On multiplie par la dérivée de l'activation : * f'(Z)
-            for (int r = 0; r < layer->delta.rows; r++) {
-                for (int c = 0; c < layer->delta.cols; c++) {
-                    double z = get_element(layer->z, r, c);
-                    double current_delta = get_element(layer->delta, r, c);
-                    set_element(layer->delta, r, c, current_delta * layer->deriv(z));
-                }
-            }
+            // --- COUCHES CACHÉES ---
+            // Delta = (Delta_Next * W_Next_T) * f'(Z)
+            // 1. Récupérer la couche suivante
+            Layer *next_layer = &net->layers[i + 1];
+
+            // 2. Propager l'erreur : Delta_Next * W_Next_T -> buffer
+            multiply_matrices(next_layer->delta, next_layer->t_weights, layer->error_temp); // Assure-toi d'avoir t_weights dans Layer
+
+            // 3. Delta = error_temp * f'(Z)
+            elementwise_multiply_matrix(layer->error_temp, layer->z_prime, layer->delta);
         }
 
-        // --- B. Calcul des Gradients ---
-        // dW = Input_Transposé * Delta
-        // Si c'est la première couche, l'input est l'entrée du réseau.
-        // Sinon, l'input est l'activation de la couche précédente.
-        Matrix layer_input = (i == 0) ? input : prev_layer->activation;
+        // C. Accumulation des Gradients (Batch)
+        // Gradient Poids = Input_Transposé * Delta
         
-        // Astuce : Pour éviter d'allouer une matrice pour Input_Transposé,
-        // on peut faire une multiplication manuelle ou ajouter un cache.
-        // Pour l'instant, supposons que tu utilises une fonction multiply_transpose_A(Input, Delta, dW)
-        // Ou que tu transposes l'input dans un cache temporaire.
+        // L'entrée de cette couche est soit l'input global, soit l'activation précédente
+        Matrix layer_input = (i == 0) ? input : net->layers[i - 1].activation;
         
-        // Supposons un cache 'input_transposed' dans Layer pour l'exemple :
-        transpose_matrix(layer_input, layer->input_transposed_cache);
-        multiply_matrices(layer->input_transposed_cache, layer->delta, layer->weight_gradients);
+        // 1. Transposer l'entrée -> t_input
+        transpose_matrix(layer_input, layer->t_input); // Assure-toi d'avoir t_input dans Layer
+        
+        // CORRECTION GRADIENTS :
+        multiply_matrices(layer->t_input, layer->delta, layer->buffer); 
+        
+        // Accumuler dans weight_gradients
+        add_matrices(layer->weight_gradients, layer->buffer, layer->weight_gradients);
 
-        // db = Delta (pour un batch size de 1)
-        copy_matrix(layer->delta, layer->bias_gradients);
+        // Gradient Biais = Delta (accumulé)
+        add_matrices(layer->bias_gradients, layer->delta, layer->bias_gradients);
     }
 
-    // 3. MISE À JOUR DES POIDS (Gradient Descent)
-    // W = W - learning_rate * dW
-    for (int i = 0; i < net.num_layers; i++) {
-        Layer *l = &net.layers[i];
+    double effective_lr = learning_rate / batch_size;
+    // 3. MISE A JOUR (Uniquement à la fin du batch)
+    if ((current_batch + 1) % batch_size == 0) {
         
-        for (int j = 0; j < l->weights.rows * l->weights.cols; j++) {
-            l->weights.data[j] -= learning_rate * l->weight_gradients.data[j];
+        for (int i = 0; i < net->num_layers; i++) {
+            Layer *l = &net->layers[i];
+
+            // W = W - (lr * Gradients)
+            scalar_multiply_matrix(l->weight_gradients, effective_lr, l->weight_gradients); // Scale les gradients par le learning rate
+            substract_matrices(l->weights, l->weight_gradients, l->weights);
+            reset_matrix(l->weight_gradients);
+
+            // B = B - (lr * Gradients)
+            scalar_multiply_matrix(l->bias_gradients, effective_lr, l->bias_gradients); // Scale les gradients par le learning rate
+            substract_matrices(l->biases, l->bias_gradients, l->biases);
+            reset_matrix(l->bias_gradients);
         }
-        
-        for (int j = 0; j < l->biases.rows * l->biases.cols; j++) {
-            l->biases.data[j] -= learning_rate * l->bias_gradients.data[j];
-        }
+        return 0; // Reset batch counter
     }
+
+    return current_batch + 1;
 }

@@ -1,4 +1,5 @@
-#include <cstddef>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 typedef struct {
@@ -61,7 +62,7 @@ void add_matrices(Matrix a, Matrix b, Matrix result) {
     }
 }
 
-void subtract_matrices(Matrix a, Matrix b, Matrix result) {
+void substract_matrices(Matrix a, Matrix b, Matrix result) {
     if (a.rows != b.rows || a.cols != b.cols) {
         fprintf(stderr, "Matrices de tailles différentes !\n");
         exit(1);
@@ -117,5 +118,11 @@ void elementwise_multiply_matrix(Matrix a, Matrix b, Matrix result) {
             double val = get_element(a, i, j) * get_element(b, i, j);
             set_element(result, i, j, val);
         }
+    }
+}
+
+void reset_matrix(Matrix mat) {
+    for(int i=0; i < mat.rows * mat.cols; i++) {
+        mat.data[i] = 0.0;
     }
 }
