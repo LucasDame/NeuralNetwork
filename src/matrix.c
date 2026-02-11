@@ -126,3 +126,12 @@ void reset_matrix(Matrix mat) {
         mat.data[i] = 0.0;
     }
 }
+
+void print_matrix(Matrix mat) {
+    for (int i = 0; i < mat.rows; i++) {
+        for (int j = 0; j < mat.cols; j++) {
+            printf("%.5f ", get_element(mat, i, j));
+        }
+        printf("\n");
+    }
+}
