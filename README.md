@@ -149,6 +149,10 @@ typedef struct {
 - `apply_activation` : Application de la fonction d'activation
 - `create_layer()` : Initialisation d'une couche
 - `free_layer()` : Libération de la mémoire d'une couche
+- `relu()` : Fonction d'activation ReLU 
+- `relu_derivative()` : Dérivée de ReLU 
+- `sigmoid()` : Fonction d'activation Sigmoid 
+- `sigmoid_derivative()` : Dérivée de Sigmoid
 
 #### 3. **Network** (`network.c`)
 Gestion du réseau complet :

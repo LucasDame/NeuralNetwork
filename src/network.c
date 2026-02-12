@@ -5,7 +5,7 @@ typedef struct {
     int num_layers;
 } Network;
 
-Network create_network(int* layer_sizes, int num_layers) {
+Network create_network(int* layer_sizes, int num_layers, ActivationFunc* activations) {
     Network net;
     net.num_layers = num_layers - 1;
     net.layers = malloc(net.num_layers * sizeof(Layer));
@@ -14,7 +14,7 @@ Network create_network(int* layer_sizes, int num_layers) {
         exit(1);
     }
     for (int i = 0; i < net.num_layers; i++) {
-        net.layers[i] = create_layer(layer_sizes[i], layer_sizes[i + 1], relu);
+        net.layers[i] = create_layer(layer_sizes[i], layer_sizes[i + 1], activations[i]);
     }
     return net;
 }
@@ -104,6 +104,7 @@ int train_network(Network *net, Matrix input, Matrix target, double learning_rat
             scalar_multiply_matrix(l->weight_gradients, effective_lr, l->weight_gradients); // Scale les gradients par le learning rate
             substract_matrices(l->weights, l->weight_gradients, l->weights);
             reset_matrix(l->weight_gradients);
+            transpose_matrix(l->weights, l->t_weights); // Met à jour la transposée des poids pour la prochaine itération
 
             // B = B - (lr * Gradients)
             scalar_multiply_matrix(l->bias_gradients, effective_lr, l->bias_gradients); // Scale les gradients par le learning rate
@@ -114,4 +115,12 @@ int train_network(Network *net, Matrix input, Matrix target, double learning_rat
     }
 
     return current_batch + 1;
+}
+
+void print_network(Network net){
+for(int i=0; i<net.num_layers; i++){ 
+    printf("Couche %d :\n", i); 
+    print_layer(net.layers[i]); 
+    printf("\n"); 
+    }      
 }

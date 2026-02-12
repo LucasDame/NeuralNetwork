@@ -8,14 +8,14 @@ CFLAGS = -Wall -Wextra -O3 -g
 LIBS = -lm
 
 # Nom de l'exécutable
-TARGET = neural_net
+TARGET = src/neural_net
 
 # Fichier principal
-SRC = main.c
+SRC = src/main.c
 
 # Dépendances (Les fichiers que main.c inclut)
 # Si un de ces fichiers change, on recompile !
-DEPS = network.c layer.c matrix.c
+DEPS = src/network.c src/layer.c src/matrix.c
 
 all: $(TARGET)
 

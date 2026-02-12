@@ -1,7 +1,26 @@
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h> // Correction : cstdef n'existe pas, il faut stdlib pour malloc/exit
+#include <stdlib.h>
 #include "matrix.c"
+
+// Définition de PI 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+// Génère un nombre aléatoire selon une loi normale (Moyenne 0, Variance 1)
+// Algorithme de Box-Muller
+double randn() {
+    double u1 = ((double)rand() / RAND_MAX);
+    double u2 = ((double)rand() / RAND_MAX);
+    
+    // Éviter log(0)
+    if (u1 < 1e-100) u1 = 1e-100;
+    
+    return sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+}
+
+typedef double (*ActivationFunc)(double);
 
 static inline double relu(double x) {
     return x > 0 ? x : 0;
@@ -19,8 +38,6 @@ static inline double sigmoid_derivative(double x) {
     double s = sigmoid(x);
     return s * (1 - s);
 }
-
-typedef double (*ActivationFunc)(double);
 
 typedef struct {
     Matrix weights;
@@ -53,12 +70,13 @@ Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
 
     // 2. Initialisation Aléatoire (CRUCIAL pour l'apprentissage)
     // On met des petites valeurs aléatoires entre -1 et 1 pour les poids
+    double scale = sqrt(2.0 / input_size);
     for(int i=0; i<input_size*output_size; i++) {
-        layer.weights.data[i] = ((double)rand() / RAND_MAX) * 2.0 - 1.0;
+        layer.weights.data[i] = randn() * scale;
     }
     // On initialise les biais à 0
     for(int i=0; i<output_size; i++) {
-        layer.biases.data[i] = 0.0;
+        layer.biases.data[i] = 0.01; // Un petit biais positif pour aider à la convergence 
     }
 
     layer.func = activation;
@@ -136,4 +154,11 @@ void compute_z_prime(Layer *layer) {
             set_element(layer->z_prime, i, j, layer->deriv(z_val));
         }
     }
+}
+
+void print_layer(Layer layer) { 
+    printf("Poids :\n"); 
+    print_matrix(layer.weights); 
+    printf("Biais :\n"); 
+    print_matrix(layer.biases);
 }

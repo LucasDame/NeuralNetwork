@@ -8,7 +8,8 @@ int main() {
 
     // 1. Création du réseau : 2 entrées -> 3 cachés -> 1 sortie
     int layers[] = {2, 3, 1};
-    Network net = create_network(layers, 3);
+    ActivationFunc activations[] = {relu, sigmoid}; // Relu pour la couche cachée, Sigmoid pour la sortie
+    Network net = create_network(layers, 3, activations);
 
     // 2. Données d'entraînement (XOR)
     // Entrées : (0,0), (0,1), (1,0), (1,1)
@@ -28,13 +29,12 @@ int main() {
     // 3. Boucle d'entraînement
     int epochs = 10000;
     double learning_rate = 0.1;
-    int batch_size = 4; // Mise à jour après avoir vu les 4 exemples
+    int batch_size = 4;
     int batch_counter = 0;
 
     printf("Entrainement en cours...\n");
     for (int i = 0; i < epochs; i++) {
         for (int j = 0; j < 4; j++) {
-            // On entraîne !
             batch_counter = train_network(&net, inputs[j], targets[j], learning_rate, batch_size, batch_counter);
         }
     }
@@ -53,7 +53,12 @@ int main() {
 
     // 5. Nettoyage
     free_network(&net);
-    // + free tes inputs/targets/output...
+
+    for(int i=0; i<4; i++) {
+        free_matrix(&inputs[i]);
+        free_matrix(&targets[i]);
+    }
+    free_matrix(&output);
     
     return 0;
 }
