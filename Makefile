@@ -15,7 +15,7 @@ SRC = src/main.c
 
 # Dépendances (Les fichiers que main.c inclut)
 # Si un de ces fichiers change, on recompile !
-DEPS = src/network.c src/layer.c src/matrix.c
+DEPS = src/network.c src/layer.c src/matrix.c src/mnist.c
 
 all: $(TARGET)
 

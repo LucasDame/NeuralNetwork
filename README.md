@@ -259,8 +259,6 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 5. Ouvrir une Pull Request
 
 ### Idées de contributions
-- Implémenter le parser MNIST
-- Ajouter d'autres fonctions d'activation (Tanh, Leaky ReLU, etc.)
 - Optimiser les performances
 - Ajouter des tests unitaires
 - Améliorer la documentation

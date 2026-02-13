@@ -5,7 +5,7 @@ typedef struct {
     int num_layers;
 } Network;
 
-Network create_network(int* layer_sizes, int num_layers, ActivationFunc* activations) {
+Network create_network(int* layer_sizes, int num_layers, ActivationFunc* activations, int* use_softmax) {
     Network net;
     net.num_layers = num_layers - 1;
     net.layers = malloc(net.num_layers * sizeof(Layer));
@@ -14,7 +14,7 @@ Network create_network(int* layer_sizes, int num_layers, ActivationFunc* activat
         exit(1);
     }
     for (int i = 0; i < net.num_layers; i++) {
-        net.layers[i] = create_layer(layer_sizes[i], layer_sizes[i + 1], activations[i]);
+        net.layers[i] = create_layer(layer_sizes[i], layer_sizes[i + 1], activations[i], use_softmax[i]);
     }
     return net;
 }
@@ -55,12 +55,17 @@ int train_network(Network *net, Matrix input, Matrix target, double learning_rat
         // B. Calcul du Delta (Erreur locale)
         if (i == net->num_layers - 1) {
             // --- DERNIÈRE COUCHE ---
-            // Delta = (Activation - Target) * f'(Z)
-            // 1. Calcul (Activation - Target) -> stocké dans error_temp
-            substract_matrices(layer->activation, target, layer->error_temp);
-            
-            // 2. Delta = error_temp * f'(Z) (Produit Hadamard)
-            elementwise_multiply_matrix(layer->error_temp, layer->z_prime, layer->delta);
+            if (layer->use_softmax) {
+                // Pour la couche de sortie avec softmax, le delta est simplement (Activation - Target)
+                substract_matrices(layer->activation, target, layer->delta);
+            } else {
+                // Delta = (Activation - Target) * f'(Z)
+                // 1. Calcul (Activation - Target) -> stocké dans error_temp
+                substract_matrices(layer->activation, target, layer->error_temp);
+                
+                // 2. Delta = error_temp * f'(Z) (Produit Hadamard)
+                elementwise_multiply_matrix(layer->error_temp, layer->z_prime, layer->delta);
+            }
         } else {
             // --- COUCHES CACHÉES ---
             // Delta = (Delta_Next * W_Next_T) * f'(Z)
@@ -124,3 +129,4 @@ for(int i=0; i<net.num_layers; i++){
     printf("\n"); 
     }      
 }
+

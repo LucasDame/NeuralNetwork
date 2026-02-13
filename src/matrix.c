@@ -1,3 +1,6 @@
+#ifndef MATRIX_c
+#define MATRIX_c
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -78,6 +81,7 @@ void substract_matrices(Matrix a, Matrix b, Matrix result) {
 void multiply_matrices(Matrix a, Matrix b, Matrix result) {
     if (a.cols != b.rows) {
         fprintf(stderr, "Matrices incompatibles pour la multiplication !\n");
+        fprintf(stderr, "A: %dx%d, B: %dx%d\n", a.rows, a.cols, b.rows, b.cols);
         exit(1);
     }
     for (int i = 0; i < a.rows; i++) {
@@ -135,3 +139,31 @@ void print_matrix(Matrix mat) {
         printf("\n");
     }
 }
+
+double max_matrix(Matrix mat) {
+    double max_val = get_element(mat, 0, 0);
+    for (int i = 0; i < mat.rows; i++) {
+        for (int j = 0; j < mat.cols; j++) {
+            double val = get_element(mat, i, j);
+            if (val > max_val) {
+                max_val = val;
+            }
+        }
+    }
+    return max_val;
+}
+
+double min_matrix(Matrix mat) {
+    double min_val = get_element(mat, 0, 0);
+    for (int i = 0; i < mat.rows; i++) {
+        for (int j = 0; j < mat.cols; j++) {
+            double val = get_element(mat, i, j);
+            if (val < min_val) {
+                min_val = val;
+            }
+        }
+    }
+    return min_val;
+}
+
+#endif

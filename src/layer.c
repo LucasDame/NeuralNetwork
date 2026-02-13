@@ -39,6 +39,11 @@ static inline double sigmoid_derivative(double x) {
     return s * (1 - s);
 }
 
+static inline double softmax_placeholder(double x) {
+    // Placeholder pour indiquer que cette couche utilisera softmax, gérée par un flag dans Layer
+    return x; 
+}
+
 typedef struct {
     Matrix weights;
     Matrix biases;
@@ -59,9 +64,10 @@ typedef struct {
     Matrix z_prime;
     Matrix t_input;
     Matrix buffer;
+    int use_softmax; // Flag pour indiquer si cette couche est une couche de sortie avec softmax
 } Layer;
 
-Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
+Layer create_layer(int input_size, int output_size, ActivationFunc activation, int use_softmax) {
     Layer layer;
     
     // 1. Allocation
@@ -76,7 +82,7 @@ Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
     }
     // On initialise les biais à 0
     for(int i=0; i<output_size; i++) {
-        layer.biases.data[i] = 0.01; // Un petit biais positif pour aider à la convergence 
+        layer.biases.data[i] = (activation == relu) ? 0.01 : 0.0; // Un petit biais pour ReLU pour éviter les neurones morts
     }
 
     layer.func = activation;
@@ -84,6 +90,9 @@ Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
         layer.deriv = relu_derivative;
     } else if (activation == sigmoid) {
         layer.deriv = sigmoid_derivative;
+    } else if (use_softmax) {
+        layer.func = softmax_placeholder; // Le vrai softmax est appliqué dans apply_activation
+        layer.deriv = NULL; // La dérivée du softmax est gérée différemment pendant la backpropagation
     } else {
         fprintf(stderr, "Activation non supportée !\n");
         exit(1);
@@ -104,6 +113,7 @@ Layer create_layer(int input_size, int output_size, ActivationFunc activation) {
     layer.z_prime = create_matrix(1, output_size, 0);
     layer.t_input = create_matrix(input_size, 1, 0);
     layer.buffer = create_matrix(input_size, output_size, 0);
+    layer.use_softmax = use_softmax;
 
     return layer;
 }
@@ -124,7 +134,27 @@ void free_layer(Layer *layer) {
     free_matrix(&layer->buffer);
 }
 
+void apply_softmax(Layer *layer) {
+    // 1. Trouver max (stabilité numérique)
+    double max_val = max_matrix(layer->z);
+    
+    // 2. Calculer exp(z - max) et somme
+    double sum = 0.0;
+    for (int j = 0; j < layer->z.cols; j++) {
+        double val = exp(get_element(layer->z, 0, j) - max_val);
+        set_element(layer->activation, 0, j, val);
+        sum += val;
+    }
+    
+    // 3. Normaliser
+    scalar_multiply_matrix(layer->activation, 1.0 / sum, layer->activation);
+}
+
 void apply_activation(Layer *layer) {
+    if (layer->use_softmax) {
+        apply_softmax(layer);
+        return;
+    }
     for (int i = 0; i < layer->z.rows; i++) {
         for (int j = 0; j < layer->z.cols; j++) {
             // CORRECTION : On ne rajoute plus le biais ici.
